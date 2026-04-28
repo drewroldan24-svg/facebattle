@@ -55,15 +55,7 @@ function tryMatch() {
     const idB = queue.shift();
     const cA  = clients.get(idA);
     const cB  = clients.get(idB);
-    if (!cA || cA.ws.readyState !== 1) { 
-      if (cB && cB.ws.readyState === 1) queue.unshift(idB);
-      continue; 
-    }
-    if (!cB || cB.ws.readyState !== 1) { 
-      if (cA && cA.ws.readyState === 1) queue.unshift(idA);
-      continue; 
-    }
-    if (cA.roomId || cB.roomId) { continue; }
+    if (!cA || !cB) { continue; }
 
     const roomId = uuidv4();
     cA.roomId = roomId;
@@ -122,12 +114,12 @@ function endBattle(roomId) {
   // Update stats
   if (cA) {
     if (winnerId === idA) cA.wins++;  else cA.losses++;
-    if (avgA > cA.bestScore) cA.bestScore = Math.round(avgA * 10) / 10;
+    if (avgA > cA.bestScore) cA.bestScore = Math.round(avgA);
     updateLeaderboard(cA.name, cA.wins, cA.losses, cA.bestScore);
   }
   if (cB) {
     if (winnerId === idB) cB.wins++; else cB.losses++;
-    if (avgB > cB.bestScore) cB.bestScore = Math.round(avgB * 10) / 10;
+    if (avgB > cB.bestScore) cB.bestScore = Math.round(avgB);
     updateLeaderboard(cB.name, cB.wins, cB.losses, cB.bestScore);
   }
 
@@ -135,8 +127,8 @@ function endBattle(roomId) {
     type: 'battle_end',
     winnerName,
     scores: {
-      [idA]: Math.round(avgA * 10) / 10,
-      [idB]: Math.round(avgB * 10) / 10,
+      [idA]: Math.round(avgA),
+      [idB]: Math.round(avgB),
     },
     playerStats: {
       [idA]: cA ? { wins: cA.wins, losses: cA.losses, bestScore: cA.bestScore } : {},
@@ -184,13 +176,9 @@ wss.on('connection', (ws) => {
       // ── Matchmaking ─────────────────────────────────────────────────────────
       case 'join_queue':
         if (!client.inQueue && !client.roomId) {
-          // Remove any stale entry first
-          const existing = queue.indexOf(socketId);
-          if (existing >= 0) queue.splice(existing, 1);
           client.inQueue = true;
           queue.push(socketId);
           ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
-          console.log(`Queue size: ${queue.length}`);
           tryMatch();
         }
         break;
@@ -260,14 +248,12 @@ wss.on('connection', (ws) => {
 
       // ── Rematch ─────────────────────────────────────────────────────────────
       case 'rematch':
-        client.roomId = null;
-        client.inQueue = false;
-        const ri = queue.indexOf(socketId);
-        if (ri >= 0) queue.splice(ri, 1);
-        client.inQueue = true;
-        queue.push(socketId);
-        ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
-        tryMatch();
+        if (!client.inQueue && !client.roomId) {
+          client.inQueue = true;
+          queue.push(socketId);
+          ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
+          tryMatch();
+        }
         break;
     }
   });
