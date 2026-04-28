@@ -114,12 +114,12 @@ function endBattle(roomId) {
   // Update stats
   if (cA) {
     if (winnerId === idA) cA.wins++;  else cA.losses++;
-    if (avgA > cA.bestScore) cA.bestScore = Math.round(avgA);
+    if (avgA > cA.bestScore) cA.bestScore = Math.round(avgA * 10) / 10;
     updateLeaderboard(cA.name, cA.wins, cA.losses, cA.bestScore);
   }
   if (cB) {
     if (winnerId === idB) cB.wins++; else cB.losses++;
-    if (avgB > cB.bestScore) cB.bestScore = Math.round(avgB);
+    if (avgB > cB.bestScore) cB.bestScore = Math.round(avgB * 10) / 10;
     updateLeaderboard(cB.name, cB.wins, cB.losses, cB.bestScore);
   }
 
@@ -127,8 +127,8 @@ function endBattle(roomId) {
     type: 'battle_end',
     winnerName,
     scores: {
-      [idA]: Math.round(avgA),
-      [idB]: Math.round(avgB),
+      [idA]: Math.round(avgA * 10) / 10,
+      [idB]: Math.round(avgB * 10) / 10,
     },
     playerStats: {
       [idA]: cA ? { wins: cA.wins, losses: cA.losses, bestScore: cA.bestScore } : {},

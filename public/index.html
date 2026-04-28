@@ -1104,6 +1104,8 @@ const ICE_SERVERS = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
     {
       urls: 'turn:openrelay.metered.ca:80',
       username: 'openrelayproject',
@@ -1114,7 +1116,13 @@ const ICE_SERVERS = {
       username: 'openrelayproject',
       credential: 'openrelayproject',
     },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 function setupPeerConnection() {
@@ -1145,22 +1153,48 @@ function setupPeerConnection() {
     if (state === 'connected') {
       document.getElementById('connect-overlay').style.display = 'none';
       addSystemChat('Video connected! 🎥');
-    } else if (state === 'failed' || state === 'disconnected') {
-      addSystemChat('⚠️ Video connection issue');
+    } else if (state === 'failed') {
+      addSystemChat('⚠️ Retrying video connection…');
+      // Auto retry after failure
+      setTimeout(() => {
+        if (peerConn && peerConn.connectionState === 'failed') {
+          setupPeerConnection();
+          send({ type: 'ready' });
+        }
+      }, 2000);
+    } else if (state === 'disconnected') {
+      addSystemChat('⚠️ Video dropped, attempting reconnect…');
+      setTimeout(() => {
+        if (peerConn && peerConn.connectionState !== 'connected') {
+          setupPeerConnection();
+          send({ type: 'ready' });
+        }
+      }, 3000);
     }
   };
 
-  // Offerer creates offer
+  // Offerer creates offer — delayed to ensure both peers are ready
   if (isOfferer) {
     peerConn.onnegotiationneeded = async () => {
       try {
+        if (peerConn.signalingState !== 'stable') return;
         const offer = await peerConn.createOffer();
         await peerConn.setLocalDescription(offer);
         send({ type: 'offer', sdp: peerConn.localDescription });
       } catch(err) { console.error('offer error', err); }
     };
+
+    // Also send offer manually after a short delay as fallback
+    setTimeout(async () => {
+      try {
+        if (peerConn && peerConn.signalingState === 'stable' && !peerConn.currentRemoteDescription) {
+          const offer = await peerConn.createOffer();
+          await peerConn.setLocalDescription(offer);
+          send({ type: 'offer', sdp: peerConn.localDescription });
+        }
+      } catch(err) { console.error('fallback offer error', err); }
+    }, 1500);
   }
-}
 
 async function handleOffer(msg) {
   if (!peerConn) return;
@@ -1269,8 +1303,8 @@ function endBattle(msg) {
   resultHeader.textContent = tied ? 'TIE!' : iWon ? '🏆 YOU WIN!' : '💔 YOU LOSE, BRUTAL💔';
   resultHeader.className = 'result-header ' + (tied ? 'tie' : iWon ? 'win' : 'lose');
 
-  document.getElementById('result-score-you').textContent = myScore;
-  document.getElementById('result-score-opp').textContent = oppScore;
+  document.getElementById('result-score-you').textContent = Number(myScore).toFixed(1);
+  document.getElementById('result-score-opp').textContent = Number(oppScore).toFixed(1);
 
   youCard.className = 'score-card' + (iWon || tied ? ' winner' : '');
   oppCard.className = 'score-card' + (!iWon || tied ? ' winner' : '');
