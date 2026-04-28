@@ -204,7 +204,7 @@ wss.on('connection', (ws) => {
         if (!room) break;
         room[`ready_${socketId}`] = true;
         const [idA, idB] = room.players;
-        if (room[`ready_${idA}`] && room[`ready_${idB}`]) {
+        if (room[`ready_${idA}`] && room[`ready_${idB}`] && !room.started) {
           startBattle(client.roomId);
         }
         break;
