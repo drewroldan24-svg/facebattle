@@ -55,7 +55,15 @@ function tryMatch() {
     const idB = queue.shift();
     const cA  = clients.get(idA);
     const cB  = clients.get(idB);
-    if (!cA || !cB) { continue; }
+    if (!cA || cA.ws.readyState !== 1) { 
+      if (cB && cB.ws.readyState === 1) queue.unshift(idB);
+      continue; 
+    }
+    if (!cB || cB.ws.readyState !== 1) { 
+      if (cA && cA.ws.readyState === 1) queue.unshift(idA);
+      continue; 
+    }
+    if (cA.roomId || cB.roomId) { continue; }
 
     const roomId = uuidv4();
     cA.roomId = roomId;
@@ -176,9 +184,13 @@ wss.on('connection', (ws) => {
       // ── Matchmaking ─────────────────────────────────────────────────────────
       case 'join_queue':
         if (!client.inQueue && !client.roomId) {
+          // Remove any stale entry first
+          const existing = queue.indexOf(socketId);
+          if (existing >= 0) queue.splice(existing, 1);
           client.inQueue = true;
           queue.push(socketId);
           ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
+          console.log(`Queue size: ${queue.length}`);
           tryMatch();
         }
         break;
@@ -248,12 +260,14 @@ wss.on('connection', (ws) => {
 
       // ── Rematch ─────────────────────────────────────────────────────────────
       case 'rematch':
-        if (!client.inQueue && !client.roomId) {
-          client.inQueue = true;
-          queue.push(socketId);
-          ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
-          tryMatch();
-        }
+        client.roomId = null;
+        client.inQueue = false;
+        const ri = queue.indexOf(socketId);
+        if (ri >= 0) queue.splice(ri, 1);
+        client.inQueue = true;
+        queue.push(socketId);
+        ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
+        tryMatch();
         break;
     }
   });
