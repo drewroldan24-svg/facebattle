@@ -248,13 +248,8 @@ wss.on('connection', (ws) => {
 
       // ── Rematch ─────────────────────────────────────────────────────────────
       case 'rematch':
-        if (!client.inQueue && !client.roomId) {
-          client.inQueue = true;
-          queue.push(socketId);
-          ws.send(JSON.stringify({ type: 'queued', position: queue.length }));
-          tryMatch();
-        }
         break;
+
     }
   });
 

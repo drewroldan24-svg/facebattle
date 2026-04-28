@@ -827,11 +827,10 @@ function cleanupBattle() {
 
 function rematch() {
   cleanupBattle();
-  send({ type: 'rematch' });
+  send({ type: 'join_queue' });
   showScreen('queue');
-  document.getElementById('queue-status').textContent = 'Searching for new opponent…';
+  document.getElementById('queue-status').textContent = 'Looking for an opponent…';
 }
-
 // ── Chat ──────────────────────────────────────────────────────────────────────
 function sendChat() {
   const input = document.getElementById('chat-input');
